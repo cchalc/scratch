@@ -1,4 +1,20 @@
 # Databricks notebook source
+# MAGIC %md Custom model logging investigation
+# MAGIC Source taken from:
+# MAGIC - https://mlflow.org/docs/latest/models.html#example-saving-an-xgboost-model-in-mlflow-format
+
+# COMMAND ----------
+
+import sys
+print("\n".join(sys.path))
+
+# COMMAND ----------
+
+# Check to see if module loads correctly
+from project.code.src.prep_data import load_data
+
+# COMMAND ----------
+
 # Load training and test datasets
 from sys import version_info
 import xgboost as xgb
@@ -8,9 +24,10 @@ from sklearn.model_selection import train_test_split
 PYTHON_VERSION = "{major}.{minor}.{micro}".format(
     major=version_info.major, minor=version_info.minor, micro=version_info.micro
 )
-iris = datasets.load_iris()
-x = iris.data[:, 2:]
-y = iris.target
+# iris = datasets.load_iris()
+# x = iris.data[:, 2:]
+# y = iris.target
+x, y = load_data()
 x_train, x_test, y_train, _ = train_test_split(x, y, test_size=0.2, random_state=42)
 dtrain = xgb.DMatrix(x_train, label=y_train)
 
@@ -66,15 +83,30 @@ conda_env = {
 
 # COMMAND ----------
 
+# create code_path
+import os
+import importlib
+mod = importlib.import_module('project.code.src.prep_data')
+code_path1 = str(mod).split("'")[3]
+print(code_path1)
+
+# COMMAND ----------
+
 
 # Save the MLflow Model
-mlflow_pyfunc_model_path = "xgb_mlflow_pyfunc"
-mlflow.pyfunc.save_model(
-    path=mlflow_pyfunc_model_path,
-    python_model=XGBWrapper(),
-    artifacts=artifacts,
-    conda_env=conda_env,
-)
+with mlflow.start_run():
+  mlflow_pyfunc_model_path = "xgb_mlflow_pyfunc_new"
+  mlflow.pyfunc.save_model(
+      path=mlflow_pyfunc_model_path,
+      python_model=XGBWrapper(),
+      artifacts=artifacts,
+      code_path=[code_path1],
+      conda_env=conda_env,
+  )
+
+
+
+# COMMAND ----------
 
 # Load the model in `python_function` format
 loaded_model = mlflow.pyfunc.load_model(mlflow_pyfunc_model_path)
@@ -84,3 +116,12 @@ import pandas as pd
 
 test_predictions = loaded_model.predict(pd.DataFrame(x_test))
 print(test_predictions)
+
+# COMMAND ----------
+
+metadata_json = loaded_model.metadata.to_json()
+display(metadata_json)
+
+# COMMAND ----------
+
+
