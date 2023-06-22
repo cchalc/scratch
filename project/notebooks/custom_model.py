@@ -24,6 +24,10 @@ xgb_model.save_model(xgb_model_path)
 # into the new MLflow Model's directory.
 artifacts = {"xgb_model": xgb_model_path}
 
+# COMMAND ----------
+
+
+
 # Define the model class
 import mlflow.pyfunc
 
@@ -59,6 +63,10 @@ conda_env = {
     "name": "xgb_env",
 }
 
+
+# COMMAND ----------
+
+
 # Save the MLflow Model
 mlflow_pyfunc_model_path = "xgb_mlflow_pyfunc"
 mlflow.pyfunc.save_model(
@@ -76,7 +84,3 @@ import pandas as pd
 
 test_predictions = loaded_model.predict(pd.DataFrame(x_test))
 print(test_predictions)
-
-# COMMAND ----------
-
-
