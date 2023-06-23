@@ -92,6 +92,10 @@ print(code_path1)
 
 # COMMAND ----------
 
+code_path2 = "/Workspace/Repos/christopher.chalcraft@databricks.com/scratch/project/code"
+
+# COMMAND ----------
+
 
 # Save the MLflow Model
 with mlflow.start_run():
@@ -101,7 +105,7 @@ with mlflow.start_run():
       artifact_path="artifacts1",
       python_model=XGBWrapper(),
       # artifacts="artifacts1", # used for save_model
-      code_path=[code_path1],
+      code_path=[code_path2],
       conda_env=conda_env,
   )
 
