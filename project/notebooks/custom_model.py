@@ -96,10 +96,11 @@ print(code_path1)
 # Save the MLflow Model
 with mlflow.start_run():
   mlflow_pyfunc_model_path = "xgb_mlflow_pyfunc_new"
-  mlflow.pyfunc.save_model(
-      path=mlflow_pyfunc_model_path,
+  mlflow.pyfunc.log_model(
+      # path=mlflow_pyfunc_model_path, # used for save_model
+      artifact_path="artifacts1",
       python_model=XGBWrapper(),
-      artifacts=artifacts,
+      # artifacts="artifacts1", # used for save_model
       code_path=[code_path1],
       conda_env=conda_env,
   )
