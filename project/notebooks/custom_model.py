@@ -11,7 +11,7 @@ print("\n".join(sys.path))
 # COMMAND ----------
 
 # Check to see if module loads correctly
-from project.code.src.prep_data import load_data
+from src.project.prep_data import load_data
 
 # COMMAND ----------
 
@@ -86,13 +86,13 @@ conda_env = {
 # create code_path
 import os
 import importlib
-mod = importlib.import_module('project.code.src.prep_data')
+mod = importlib.import_module('src.project.prep_data')
 code_path1 = str(mod).split("'")[3]
 print(code_path1)
 
 # COMMAND ----------
 
-code_path2 = "/Workspace/Repos/christopher.chalcraft@databricks.com/scratch/project/code"
+code_path2 = "/Workspace/Repos/christopher.chalcraft@databricks.com/scratch/src"
 
 # COMMAND ----------
 
