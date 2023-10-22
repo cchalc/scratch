@@ -1,7 +1,7 @@
 dbx
 databricks-cli
 databricks-sql-cli
-databricks-connect==10.4.*
+databricks-connect
 databricks-sql-connector
 nutter
 pydantic
