@@ -88,7 +88,7 @@ df_200.coalesce(8)
 
 # COMMAND ----------
 
-sc.setJobDescription("single classification")
+sc.setJobDescription("200 classification")
 result_df = (df_200
              .withColumn(
                "label_pred_zero_shot", classify_text(df.Text)
@@ -98,7 +98,8 @@ display(result_df)
 
 # COMMAND ----------
 
-
+# MAGIC %md #### Issue
+# MAGIC Cannot distribute the job properly. There is no shuffle so the data was partitioned on read into 9 partitions using `spark.conf.set("spark.sql.files.maxPartitionBytes", 250000) #~2MB/8`. Trying to run a test on a 200 row dataframe. What I think should happen: dataset is split into 8 and then the udf `classify_text` should pick up the column as a pandas.Series and return the labels. 
 
 # COMMAND ----------
 
