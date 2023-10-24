@@ -8,6 +8,8 @@ dbutils.library.restartPython()
 
 # COMMAND ----------
 
+# create a scope or use an existing scope to put keys
+# databricks secrets put --scope tokens --key kaggle_key --string-value <string value>
 kaggle_key = dbutils.secrets.get("tokens", "kaggle_key")
 
 # COMMAND ----------
