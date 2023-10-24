@@ -22,6 +22,12 @@ os.environ['TRANSFORMERS_CACHE'] = '/Volumes/cjc/scratch/llm_cache'
 
 # COMMAND ----------
 
+#spark.conf.set("spark.sql.files.maxPartitionBytes", 250000) #~2MB/8
+spark.conf.set("spark.sql.files.maxPartitionBytes", 285714) #~2MB/7
+
+# COMMAND ----------
+
+# dataset is only 1.9MiB
 df = spark.read.table("bbc_news_train")
 display(df)
 
@@ -30,31 +36,6 @@ display(df)
 num_partitions = df.rdd.getNumPartitions()
 print("Number of partitions in the DataFrame:", num_partitions)
 
-
-# COMMAND ----------
-
-df.select('Category').distinct().show()
-
-# COMMAND ----------
-
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-nli_model = AutoModelForSequenceClassification.from_pretrained('facebook/bart-large-mnli')
-tokenizer = AutoTokenizer.from_pretrained('facebook/bart-large-mnli')
-
-# COMMAND ----------
-
-tokenizer.max_model_input_sizes
-
-# COMMAND ----------
-
-# Convert the Spark DataFrame column to a list
-text_list = df.select('Text').rdd.flatMap(lambda x: x).collect()
-
-# Tokenize the list of strings
-tokenized_articles_lengths = pd.DataFrame({'length': list(map(len, tokenizer(text_list, truncation=False, padding=False)['input_ids']))})
-
-# Print summary statistics of the resulting DataFrame
-tokenized_articles_lengths.describe()
 
 # COMMAND ----------
 
@@ -93,7 +74,7 @@ def classify_text(texts: pd.Series) -> pd.Series:
     pipe = broadcast_pipeline.value(
       ("classify: " + texts).to_list()
                       ,candidate_labels
-                      ,batch_size=1)
+                      ,batch_size=8)
     labels = [result['labels'][0] for result in pipe]
     return pd.Series(labels)
 
@@ -103,62 +84,23 @@ def classify_text(texts: pd.Series) -> pd.Series:
 
 # COMMAND ----------
 
-sc.setJobDescription("single classification")
-result_df = (df
-             .limit(1)
-             .cache()
-             .withColumn(
-               "label_pred_zero_shot", classify_text(df.Text)
-               )
-             )
-
-# COMMAND ----------
-
-display(result_df)
-
-# COMMAND ----------
-
-# MAGIC %md ### Run on small sample
-
-# COMMAND ----------
-
-sc.setJobDescription("small sample classification")
-result_df = (df
-             .limit(10)
-             .cache()
-             .withColumn(
-               "label_pred_zero_shot", classify_text(df.Text)
-               )
-             )
-display(result_df)
-
-# COMMAND ----------
-
-# MAGIC %md ### Run on larger dataset and modify batch size
-
-# COMMAND ----------
-
-# Define a Pandas UDF to perform zero-shot classification
-@pandas_udf('string')
-def classify_text(texts: pd.Series) -> pd.Series:
-    pipe = broadcast_pipeline.value(
-      ("classify: " + texts).to_list()
-                      ,candidate_labels
-                      ,batch_size=8)
-    labels = [result['labels'][0] for result in pipe]
-    return pd.Series(labels)
+# df.limit(200).coalesce(8).rdd.getNumPartitions()
 
 # COMMAND ----------
 
 df_200 = df.limit(200)
-df_200.show()
+# since coalesce is only supposed to decrease the number of partitions, this doesn't do anything.
+# using repartition in the next cell
+# df_200.coalesce(8)
 
 # COMMAND ----------
 
-sc.setJobDescription("large dataset classification")
-result_df = (df
-             .limit(200)
-             .cache()
+df_200 = df.limit(200).repartition(8)
+
+# COMMAND ----------
+
+sc.setJobDescription("200 classification")
+result_df = (df_200
              .withColumn(
                "label_pred_zero_shot", classify_text(df.Text)
                )
@@ -167,22 +109,20 @@ display(result_df)
 
 # COMMAND ----------
 
---
+# MAGIC %md #### Issue
+# MAGIC Cannot distribute the job properly. There is no shuffle so the data was partitioned on read into 9 partitions using `spark.conf.set("spark.sql.files.maxPartitionBytes", 250000) #~2MB/8`. Trying to run a test on a 200 row dataframe. What I think should happen: dataset is split into 8 and then the udf `classify_text` should pick up the column as a pandas.Series and return the labels. 
 
 # COMMAND ----------
 
-# MAGIC %md ### Full dataset
-
-# COMMAND ----------
-
-sc.setJobDescription("full dataset classification")
-result_df = (df
-             .cache()
-             .withColumn(
-               "label_pred_zero_shot", classify_text(df.Text)
-               )
-             )
-display(result_df)
+# MAGIC %md
+# MAGIC #### Update - DP
+# MAGIC
+# MAGIC Was able to distribute primary dataframe to 8 partitions by using `spark.conf.set("spark.sql.files.maxPartitionBytes", 285714) #~2MB/7`. Needed to use `repartition(8)` on `df_200` to cause a shuffle. However, this is still hanging during the shuffle stage. Looking at certain tasks shows an error message:
+# MAGIC ```
+# MAGIC 23/10/23 14:18:34 WARN HangingTaskDetector: Task 49 is probably not making progress because its metrics (Map(internal.metrics.shuffle.read.localBlocksFetched -> 0, internal.metrics.shuffle.read.remoteBytesReadToDisk -> 0, internal.metrics.shuffle.write.bytesWritten -> 0, internal.metrics.output.recordsWritten -> 0, internal.metrics.shuffle.write.recordsWritten -> 0, internal.metrics.memoryBytesSpilled -> 0, internal.metrics.shuffle.read.remoteBytesRead -> 35852, internal.metrics.diskBytesSpilled -> 0, internal.metrics.shuffle.read.localBytesRead -> 0, internal.metrics.shuffle.read.recordsRead -> 25, internal.metrics.output.bytesWritten -> 0, internal.metrics.input.bytesRead -> 0, internal.metrics.input.recordsRead -> 0, internal.metrics.shuffle.read.remoteBlocksFetched -> 1)) has not changed since Mon Oct 23 13:58:34 UTC 2023
+# MAGIC ```
+# MAGIC
+# MAGIC Process eventually finished after 44 minutes.
 
 # COMMAND ----------
 
@@ -201,6 +141,20 @@ display(result_df)
 # MAGIC - Small Sample (10): Command took 37.62 seconds
 # MAGIC - Larger Sample (200, batch size 8): Command took 3.76 minutes
 # MAGIC - Full dataset (1490, batch size 8): Command took 25.26 minutes
+# MAGIC
+# MAGIC #### 2 worker CPU
+# MAGIC **Specs**
+# MAGIC ```
+# MAGIC Summary
+# MAGIC 2 Workers 61 GB Memory 8 Cores 
+# MAGIC 1 Driver 30.5 GB Memory, 4 Cores
+# MAGIC Runtime 14.1.x-cpu-ml-scala2.12
+# MAGIC Unity Catalog i3.xlarge 3 DBU/h
+# MAGIC ```
+# MAGIC
+# MAGIC **Runs**
+# MAGIC - Larger Sample (200, batch size 8): Command took 44 minutes
+# MAGIC - Full dataset (1490, batch size 8): Command took ____
 
 # COMMAND ----------
 
