@@ -158,4 +158,18 @@ display(result_df)
 
 # COMMAND ----------
 
+a = (3.76/60) * 0.71
+print(a)
 
+# COMMAND ----------
+
+b = (44/60)*3
+print(b)
+
+# COMMAND ----------
+
+b/a
+
+# COMMAND ----------
+
+3.76/60
