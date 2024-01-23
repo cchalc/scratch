@@ -24,11 +24,15 @@ os.environ['KAGGLE_KEY']=kaggle_key
 
 # COMMAND ----------
 
+dbutils.fs.ls("/Users/christopher.chalcraft@databricks.com/zeroshot")
+
+# COMMAND ----------
+
 base_path = "/Users/christopher.chalcraft@databricks.com/zeroshot"
 
 # COMMAND ----------
 
-dbutils.fs.mkdirs("/Users/christopher.chalcraft@databricks.com/zeroshot")
+# dbutils.fs.mkdirs("/Users/christopher.chalcraft@databricks.com/zeroshot")
 
 # COMMAND ----------
 
@@ -42,7 +46,7 @@ dbutils.fs.mkdirs("/Users/christopher.chalcraft@databricks.com/zeroshot")
 
 # COMMAND ----------
 
-# MAGIC %sh ls /dbfs/Users/christopher.chalcraft@databricks.com/zeroshot/
+# %sh ls /dbfs/Users/christopher.chalcraft@databricks.com/zeroshot/
 
 # COMMAND ----------
 
@@ -84,6 +88,14 @@ display(sample_df)
 
 # make sure these are created beforehand
 spark.sql("use catalog cjc")
+
+# COMMAND ----------
+
+spark.sql("create schema if not exists scratch")
+
+# COMMAND ----------
+
+
 spark.sql("use schema scratch")
 
 # COMMAND ----------
