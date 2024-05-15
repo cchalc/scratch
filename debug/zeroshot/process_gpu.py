@@ -93,10 +93,6 @@ def classify_text(texts: pd.Series) -> pd.Series:
 
 # COMMAND ----------
 
-# MAGIC %md ### Run on a sample
-
-# COMMAND ----------
-
 sc.setJobDescription("single classification")
 result_df = (df
              .limit(1)
